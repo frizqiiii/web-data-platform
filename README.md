@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Web Data Acquisition & Automation Platform
 
 Enterprise-grade web scraping, scheduling, and data pipeline
@@ -151,3 +152,7 @@ no application to deploy would be premature.
   access (the authoring sandbox for this repository had none). See
   `PHASE_0_REPORT.md` for the full list of what is and isn't
   verified yet.
+=======
+# web-data-platform
+Enterprise-grade web data acquisition and automation platform for scheduled scraping, distributed processing, data pipelines, analytics, and operational monitoring.
+>>>>>>> 4ea109762d028be804c54f53b743566bb4b3c32e
