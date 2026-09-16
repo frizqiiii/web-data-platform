@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U platform"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://platform:platform@localhost:5432/platform_test
+      REDIS_URL: redis://localhost:6379/0
+      ENVIRONMENT: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies (all groups)
+        run: uv sync --group api --group worker --group scheduler --group dev
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy)
+        run: uv run mypy apps/
+
+      - name: Run migrations against real Postgres
+        run: uv run alembic -c migrations/alembic.ini upgrade head
+
+      - name: Unit + integration tests
+        run: uv run pytest --cov --cov-report=term-missing

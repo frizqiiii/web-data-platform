@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12-slim
+
+RUN groupadd --gid 1000 appuser \
+    && useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+COPY pyproject.toml ./
+COPY uv.lock* ./
+RUN uv sync --group worker --no-dev
+
+COPY apps/worker ./apps/worker
+
+ENV PYTHONPATH=/app/apps/worker
+ENV PATH="/app/.venv/bin:$PATH"
+
+USER appuser
+
+CMD ["uv", "run", "celery", "-A", "worker.main", "worker", "--loglevel=INFO"]

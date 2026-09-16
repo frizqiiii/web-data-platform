@@ -1,0 +1,9 @@
+{
+  "name": "dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web Data Acquisition & Automation Platform dashboard — NOT YET SCAFFOLDED, see README.md",
+  "scripts": {
+    "dev": "echo 'Not implemented yet — see frontend/dashboard/README.md' && exit 1"
+  }
+}

@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+FROM python:3.12-slim
+
+RUN groupadd --gid 1000 appuser \
+    && useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+COPY pyproject.toml ./
+COPY uv.lock* ./
+RUN uv sync --group scheduler --no-dev
+
+COPY apps/scheduler ./apps/scheduler
+
+ENV PYTHONPATH=/app/apps/scheduler
+ENV PATH="/app/.venv/bin:$PATH"
+
+USER appuser
+
+# NOTE: scheduler.main currently raises NotImplementedError by design
+# (Phase 6 not yet built). This container WILL exit non-zero if
+# started — that is intentional, not a bug. It is not included by
+# default in docker-compose.yml (opt-in via the "scheduler" profile)
+# so it doesn't crash-loop in a normal `docker compose up`.
+CMD ["uv", "run", "python", "-m", "scheduler.main"]
