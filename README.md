@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Web Data Acquisition & Automation Platform
 
 Enterprise-grade web scraping, scheduling, and data pipeline
@@ -34,18 +33,6 @@ See `docs/architecture/overview.md` for the full diagram and
 | CI | GitHub Actions |
 
 ## 3. Repository Structure
-
-```
-apps/api/         FastAPI application (modular monolith)
-apps/worker/      Celery worker (scraping engines land here from Phase 3/5)
-apps/scheduler/   Scheduler process (not implemented until Phase 6)
-frontend/         Dashboard (not scaffolded until Phase 9)
-packages/         Shared contracts/logging/telemetry (empty until needed)
-migrations/       Alembic migrations
-infrastructure/   Docker, Kubernetes, Helm, Terraform (k8s/helm/terraform empty until Phase 16)
-docs/             Architecture, ADRs, operations, security, API docs
-tests/            Cross-cutting integration/e2e/performance tests
-```
 
 ## 4. Local Setup
 
@@ -152,7 +139,3 @@ no application to deploy would be premature.
   access (the authoring sandbox for this repository had none). See
   `PHASE_0_REPORT.md` for the full list of what is and isn't
   verified yet.
-=======
-# web-data-platform
-Enterprise-grade web data acquisition and automation platform for scheduled scraping, distributed processing, data pipelines, analytics, and operational monitoring.
->>>>>>> 4ea109762d028be804c54f53b743566bb4b3c32e
