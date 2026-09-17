@@ -4,6 +4,7 @@
 this one IS runnable without Postgres/Redis, once `fastapi` and
 `httpx` are installed via `uv sync --group api --group dev`.
 """
+
 import pytest
 
 

@@ -6,6 +6,7 @@ this module deliberately has NO silent defaults for anything
 connectivity- or security-relevant (database, redis). Missing them
 raises at import/instantiation time, not at first use.
 """
+
 from functools import lru_cache
 from typing import Literal
 
@@ -17,7 +18,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="forbid",
+        # "ignore" not "forbid": local dev shares ONE .env across
+        # api/worker/scheduler (e.g. MINIO_* vars), so this Settings
+        # class will legitimately see keys it doesn't declare. Required
+        # fields (database_url, redis_url) still fail fast if missing.
+        extra="ignore",
     )
 
     environment: Literal["development", "test", "staging", "production"] = "development"

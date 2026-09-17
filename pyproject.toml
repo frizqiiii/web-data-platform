@@ -54,13 +54,21 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
-# Section 80: tightened module-by-module, not blanket-strict from day one
 disallow_untyped_defs = false
 exclude = ["migrations/"]
+
+# celery ships no type stubs upstream (found by actually running mypy)
+[[tool.mypy.overrides]]
+module = "celery.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["apps"]
 asyncio_mode = "auto"
+# apps/api/app, apps/worker/worker, apps/scheduler/scheduler are each
+# their own top-level package — pytest needs this to resolve imports
+# (found by actually running pytest)
+pythonpath = ["apps/api", "apps/worker", "apps/scheduler"]
 markers = [
     "integration: requires a live PostgreSQL/Redis instance (see docker-compose.yml); skipped in unit-only runs",
 ]

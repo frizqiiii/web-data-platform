@@ -12,6 +12,7 @@ Run for real via:
     uv sync --group worker --group dev
     uv run pytest apps/worker/tests -v
 """
+
 from worker.main import app as celery_app
 from worker.tasks.ping import ping
 

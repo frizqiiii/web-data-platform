@@ -8,6 +8,7 @@ log fields. Correlation fields (request_id, organization_id, job_id,
 that introduce them (auth middleware in Phase 1, job execution in
 Phase 4, etc.) — Phase 0 only wires the base chain.
 """
+
 import logging
 import sys
 

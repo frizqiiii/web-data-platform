@@ -3,6 +3,7 @@
 Phase 0 scope: connection plumbing and a health check only. No
 domain models/tables exist yet — those start in Phase 1.
 """
+
 from collections.abc import AsyncGenerator
 
 from sqlalchemy import text

@@ -6,6 +6,7 @@ on purpose: the API and worker are deployed and scaled independently
 Duplicated fields (redis_url) are intentional isolation, not laziness
 — see ADR-002 for the reasoning.
 """
+
 from functools import lru_cache
 
 from pydantic import RedisDsn
@@ -16,7 +17,7 @@ class WorkerSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="forbid",
+        extra="ignore",
     )
 
     redis_url: RedisDsn

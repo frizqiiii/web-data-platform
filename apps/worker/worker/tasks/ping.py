@@ -6,6 +6,7 @@ is actually serialized, sent through Redis, picked up by an actual
 worker process, and actually executed — it just doesn't do anything
 domain-specific yet, because there is no domain logic in Phase 0.
 """
+
 from worker.main import app
 
 

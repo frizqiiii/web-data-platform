@@ -5,6 +5,7 @@ None and autogenerate is not usable — that's expected, not a bug.
 It becomes usable starting Phase 1 once apps/api/app/models/ has
 real SQLAlchemy models to diff against.
 """
+
 import asyncio
 import os
 from logging.config import fileConfig

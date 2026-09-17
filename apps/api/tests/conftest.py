@@ -1,8 +1,8 @@
 """Shared pytest fixtures for the API test suite."""
-import pytest
-from httpx import ASGITransport, AsyncClient
 
+import pytest
 from app.main import app
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture

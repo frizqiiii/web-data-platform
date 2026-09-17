@@ -5,6 +5,7 @@ execute a task end-to-end via worker.tasks.ping. No scraping tasks
 exist yet (Section 1.5 — no fake queue execution standing in for
 real scraping); those start in Phase 5.
 """
+
 from celery import Celery
 
 from worker.core.config import get_worker_settings

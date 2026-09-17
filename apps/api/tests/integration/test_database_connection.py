@@ -12,8 +12,8 @@ Run it for real via:
     export REDIS_URL=redis://localhost:6379/0
     uv run pytest apps/api/tests/integration -m integration -v
 """
-import pytest
 
+import pytest
 from app.core.database import check_database_connection
 
 pytestmark = pytest.mark.integration

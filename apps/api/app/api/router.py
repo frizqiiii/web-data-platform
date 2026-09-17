@@ -5,6 +5,7 @@ Phase 0 scope: /health and /ready only, exposed both at the root
 Domain routers (auth, organizations, projects, ...) are mounted here
 starting Phase 1 — this file stays this small until then.
 """
+
 from fastapi import APIRouter
 
 from app.core.database import check_database_connection
