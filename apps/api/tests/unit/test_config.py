@@ -29,6 +29,7 @@ def test_settings_requires_redis_url(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_settings_loads_with_required_vars_and_sane_defaults(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost:5432/db")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
@@ -41,6 +42,7 @@ def test_settings_ignores_unrelated_env_vars(monkeypatch: pytest.MonkeyPatch) ->
     vars this Settings class doesn't declare fields for). Those must be
     tolerated, not rejected — only genuinely missing required fields
     (database_url, redis_url) should fail (see the two tests above)."""
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost:5432/db")
     monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
     monkeypatch.setenv("MINIO_ENDPOINT", "localhost:9000")
