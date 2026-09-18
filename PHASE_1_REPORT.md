@@ -104,7 +104,36 @@ fixtures (`apps/api/tests/conftest.py`'s `client` fixture) is a
 combination I reasoned through but could not execute — flagging this
 so a fixture-scope error, if one appears, isn't a surprise.
 
-## 1. Files Changed
+## 0d. Round 5 findings (third real CI run — the loop-scope fix worked)
+
+No more "attached to a different loop" errors — confirms the Section
+0c loop-scope reasoning was correct. Register and login themselves
+now succeed (visible in the captured structlog output:
+`user_registered` then `user_logged_in` for every failing test). Down
+to 3 failures, and this time the failure is one step LATER than
+before: the request immediately AFTER login (`GET /me` or
+`POST /organizations`) comes back `401 Unauthorized` instead of the
+expected `200`/`201`.
+
+**Root cause**: `app/modules/auth/router.py::_set_session_cookies`
+sets `secure = settings.environment != "development"`. CI sets
+`ENVIRONMENT=test`, so every session/refresh/CSRF cookie is issued
+with `Secure=true` (correctly, per Decision C). The test's
+`AsyncClient` used `base_url="http://test"` — plain HTTP — and
+httpx's cookie jar correctly refuses to send a `Secure`-flagged
+cookie back over a non-HTTPS request (RFC 6265), so every request
+after login silently arrived with no session cookie at all.
+
+**This is not an application bug.** The app was correctly enforcing
+Decision C's cookie security requirement; the test was the one not
+simulating a realistic HTTPS deployment. Weakening `secure=True` to
+accommodate the test would mean Decision C's cookie security is never
+actually exercised by any test — the wrong fix. Instead: changed
+every `AsyncClient(..., base_url="http://test")` in
+`test_auth_flow.py` to `base_url="https://test"` (ASGITransport does
+no real TLS handshake either way — the scheme only affects httpx's
+own cookie-jar security policy, which is exactly the thing we need
+exercised realistically).
 
 **New:**
 ```

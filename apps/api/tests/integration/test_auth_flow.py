@@ -13,6 +13,18 @@ see PHASE_1_REPORT.md. Run for real via:
 Each test uses a fresh random email/slug (uuid4) rather than fixtures
 that truncate tables — simpler, and avoids one test's cleanup
 accidentally hiding another test's bug.
+
+IMPORTANT: every AsyncClient below uses base_url="https://test", not
+"http://test". This is not cosmetic — the API sets its session/
+refresh/CSRF cookies with `secure=True` for every environment except
+"development" (Decision C), and httpx's cookie jar correctly refuses
+to send a Secure-flagged cookie back on a plain http:// request (RFC
+6265). Using "http://test" here made every request after login
+silently drop its cookies and come back 401 — found by actually
+running these tests in CI (Section 0c/0d, PHASE_1_REPORT.md). The fix
+is here, in the test, not in the app: weakening `secure=True` to make
+"http://test" work would mean never testing the real cookie security
+behavior at all.
 """
 
 import uuid
@@ -67,7 +79,7 @@ async def test_full_auth_and_organization_flow() -> None:
     slug = _unique_slug()
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
+    async with AsyncClient(transport=transport, base_url="https://test") as client:
         await _register_and_login(client, email=email, password=STRONG_PASSWORD, name="Test User")
 
         # protected /me
@@ -115,7 +127,7 @@ async def test_cross_tenant_access_is_denied() -> None:
     read Org B, which belongs to User B."""
     transport = ASGITransport(app=app)
 
-    async with AsyncClient(transport=transport, base_url="http://test") as client_b:
+    async with AsyncClient(transport=transport, base_url="https://test") as client_b:
         await _register_and_login(
             client_b, email=_unique_email(), password=STRONG_PASSWORD, name="User B"
         )
@@ -127,7 +139,7 @@ async def test_cross_tenant_access_is_denied() -> None:
         assert resp.status_code == 201
         org_b_id = resp.json()["id"]
 
-    async with AsyncClient(transport=transport, base_url="http://test") as client_a:
+    async with AsyncClient(transport=transport, base_url="https://test") as client_a:
         await _register_and_login(
             client_a, email=_unique_email(), password=STRONG_PASSWORD, name="User A"
         )
@@ -150,7 +162,7 @@ async def test_idor_non_member_cannot_access_any_organization() -> None:
     though they are authenticated."""
     transport = ASGITransport(app=app)
 
-    async with AsyncClient(transport=transport, base_url="http://test") as owner_client:
+    async with AsyncClient(transport=transport, base_url="https://test") as owner_client:
         await _register_and_login(
             owner_client, email=_unique_email(), password=STRONG_PASSWORD, name="Owner"
         )
@@ -162,7 +174,7 @@ async def test_idor_non_member_cannot_access_any_organization() -> None:
         assert resp.status_code == 201
         org_id = resp.json()["id"]
 
-    async with AsyncClient(transport=transport, base_url="http://test") as outsider_client:
+    async with AsyncClient(transport=transport, base_url="https://test") as outsider_client:
         await _register_and_login(
             outsider_client, email=_unique_email(), password=STRONG_PASSWORD, name="Outsider"
         )
@@ -180,7 +192,7 @@ async def test_password_never_appears_in_logs() -> None:
 
     transport = ASGITransport(app=app)
     with structlog.testing.capture_logs() as captured_logs:
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
             await _register_and_login(
                 client, email=email, password=distinctive_password, name="Log Test User"
             )
