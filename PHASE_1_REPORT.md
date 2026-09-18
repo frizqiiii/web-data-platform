@@ -79,6 +79,31 @@ further real bugs in the parts of the flow that have never yet run
 against a real database** — that would be Round 4, not a sign
 anything is wrong with the fix above.
 
+## 0c. Round 4 findings (second real CI run — prediction in 0b came true)
+
+Exactly as flagged: fixing the email domain let 2 of the 4 tests
+reach further into the actual logic, revealing 2 real bugs — 27
+passed, 4 still failed, but for entirely new reasons this time:
+
+| Bug | Symptom | Root cause | Fix |
+|---|---|---|---|
+| A | `fastapi.exceptions.ResponseValidationError`: `id` — "Input should be a valid string", got a `UUID` object, on `register`/`login`/`me` | `UserResponse.id: str`, but `app/modules/auth/router.py` returns the raw SQLAlchemy `User` object (`id: uuid.UUID`) relying on `from_attributes=True` — pydantic v2 does NOT auto-coerce `UUID` to `str` for a plain `str` field | Added a `@field_validator("id", mode="before")` to `UserResponse` that does `str(value)` — fixes all 3 call sites (register/login/me) at once rather than repeating `str(user.id)` in each router function |
+| B | `RuntimeError: ... got Future ... attached to a different loop` on `test_cross_tenant_access_is_denied` and `test_password_never_appears_in_logs` (both are the 2nd async DB-touching test in their module to run) | `app/core/database.py`'s async SQLAlchemy `engine` is a module-level singleton, created once at import time and bound to whichever event loop is running then. pytest-asyncio's default is a NEW event loop per test function — every test after the first one that touches the DB gets a fresh loop, but inherits a connection pool bound to the now-dead previous loop | Set `asyncio_default_test_loop_scope = "session"` in `pyproject.toml` — one shared event loop for the whole test session, matching the engine's actual (single-process, single-loop) production lifetime |
+
+Bug B is the more interesting one: it's not an application bug at
+all, and would never show up in production (a real deployed process
+has exactly one event loop for its whole lifetime, which is precisely
+what the engine assumes) — it's purely an artifact of how
+pytest-asyncio isolates test functions by default. Worth documenting
+because the next person adding an integration test touching the DB
+needs to know this constraint exists.
+
+**Not yet re-verified**: this fix has not been run by the user yet.
+Session-scoped test loops interacting with function-scoped async
+fixtures (`apps/api/tests/conftest.py`'s `client` fixture) is a
+combination I reasoned through but could not execute — flagging this
+so a fixture-scope error, if one appears, isn't a surprise.
+
 ## 1. Files Changed
 
 **New:**
