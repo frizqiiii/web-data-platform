@@ -35,10 +35,49 @@ and `mypy` then found real issues — this is the process working:
 real Postgres+Redis). This is real, user-executed evidence — not
 claimed by me.
 
-**Not yet re-verified**: `ruff check`, `ruff format --check`, and
-`mypy` need to be re-run against these fixes (they were fixed in
-response to the user's first real run, but that re-run hasn't
-happened yet as of this report). See Section 10.
+**Round 2 (re-verification)**: one more ruff B008 false-positive
+(`require_role(...)` called inside `Depends(...)`, same class of
+issue as the 22 already fixed) — added
+`"app.api.deps.require_role"` to `extend-immutable-calls`. After
+that: `ruff check` clean, `ruff format --check` clean (67 files),
+`mypy apps/` clean (53 files, 0 errors).
+
+## 0b. Round 3 findings (first real CI run, real Postgres+Redis)
+
+This is the first time `alembic upgrade head` (migration `0002`) and
+the integration tests ever touched a real database. Result: **27
+passed, 4 failed** — and all 4 failures share one root cause, caught
+at the very first line of every integration test (user registration):
+
+```
+value_error: value is not a valid email address: The part after the
+@-sign is a special-use or reserved name that cannot be used with
+email. input: "user-xxx@example.test"
+```
+
+**Root cause**: the test helper `_unique_email()` used
+`@example.test` as a fake domain. `.test` is an RFC 2606 special-use
+TLD, and `email-validator` (which backs pydantic's `EmailStr`,
+correctly validating what `RegisterRequest` declares) rejects it
+outright — this is the API correctly doing its job, not a bug in the
+API. The bug was in the TEST's choice of fake domain.
+
+**Fix**: changed `_unique_email()` to use `@wdp-test-mail.com` — a
+real TLD (`.com`) that isn't one of RFC 2606's specifically-reserved
+example domains (`example.com/.net/.org/.edu`), so it passes syntax
+validation without needing a real, deliverable mailbox (pydantic's
+`EmailStr` does not perform a DNS/deliverability lookup by default).
+
+**Important honesty note for the next run**: because all 4 failures
+happened at the FIRST line of each test (registration), none of the
+logic after it — login, cookie handling, CSRF, organization creation,
+cross-tenant/IDOR checks, refresh rotation against real Redis — has
+actually been exercised yet. The coverage report confirms this:
+`modules/auth/router.py` at 37%, `modules/organizations/router.py` at
+52%. **Do not be surprised if fixing this domain issue reveals
+further real bugs in the parts of the flow that have never yet run
+against a real database** — that would be Round 4, not a sign
+anything is wrong with the fix above.
 
 ## 1. Files Changed
 
@@ -195,38 +234,40 @@ uv run pytest -m "not integration"
 ## 11. Exact Commands That Need CI (Postgres + Redis, per the hardware constraint recorded in Phase 0)
 
 Push to GitHub and check `https://github.com/frizqiiii/web-data-platform/actions` —
-CI already runs `alembic upgrade head` and the full pytest suite
-(including integration tests) against real Postgres+Redis service
-containers (`.github/workflows/ci.yml`, unchanged since Phase 0 — it
-already provisions both).
+CI runs `alembic upgrade head` → `downgrade -1` → `upgrade head`
+again (added in this round — the original Phase 0 CI only ran
+`upgrade head` once, which didn't actually verify reversibility per
+the Definition of Done) and the full pytest suite (including
+integration tests) against real Postgres+Redis service containers.
 
 ## 12. Verification Results
 
 | # | Item | Status | Notes |
 |---|---|---|---|
-| 1 | `alembic upgrade head` (0001->0002) | **UNVERIFIED** | never run against real Postgres; hand-written migration, needs CI to confirm |
-| 2 | `alembic downgrade -1` (0002->0001) | **UNVERIFIED** | same |
-| 3 | `alembic upgrade head` again | **UNVERIFIED** | same |
-| 4 | Register | **UNVERIFIED** | needs #1 first, then integration test run |
-| 5 | Login | **UNVERIFIED** | same |
-| 6 | Protected `/me` | **UNVERIFIED** | same |
+| 1 | `alembic upgrade head` (0001->0002) | **PASS** | confirmed by CI — the integration test suite ran against real Postgres, which requires the schema to exist |
+| 2 | `alembic downgrade -1` (0002->0001) | **UNVERIFIED** | CI didn't test this until this round's `ci.yml` fix (Section 0b) — needs the NEXT CI run to confirm |
+| 3 | `alembic upgrade head` again | **UNVERIFIED** | same — needs next CI run |
+| 4 | Register | **FAIL then fixed** | failed in CI (Section 0b: test's fake email domain `.test` rejected by email-validator) — root cause was the TEST, not the API; fixed, needs re-run to confirm PASS |
+| 5 | Login | **UNVERIFIED** | blocked by #4 failing first — never reached. Needs re-run |
+| 6 | Protected `/me` | **UNVERIFIED** | blocked by #4 failing first — never reached |
 | 7 | Logout | **UNVERIFIED** | same |
 | 8 | Refresh | **UNVERIFIED** | same |
-| 9 | Refresh rotation | **PASS (unit)** | `test_refresh_rotation_issues_new_pair` — actually run by the user, passed. Real-Redis/CI confirmation still pending |
-| 10 | Refresh reuse protection | **PASS (unit)** | `test_refresh_token_reuse_is_detected_and_revokes_family` — actually run, passed. Real-Redis/CI confirmation still pending |
+| 9 | Refresh rotation | **PASS (unit)** | `test_refresh_rotation_issues_new_pair` — actually run by the user, passed. Real-Redis/CI confirmation still pending (blocked by #4) |
+| 10 | Refresh reuse protection | **PASS (unit)** | `test_refresh_token_reuse_is_detected_and_revokes_family` — actually run, passed. Real-Redis/CI confirmation still pending (blocked by #4) |
 | 11 | Argon2id hashing | **PASS (unit)** | `test_security.py` — actually run by the user (argon2-cffi installed via `uv sync`, 25.1.0), passed |
-| 12 | Password never in logs | **UNVERIFIED** | integration test, needs Postgres+Redis via CI |
-| 13 | Organization authorization | **UNVERIFIED** | needs integration run via CI |
+| 12 | Password never in logs | **UNVERIFIED** | test itself never reached the assertion — blocked by #4 |
+| 13 | Organization authorization | **UNVERIFIED** | blocked by #4 |
 | 14 | Membership authorization | **UNVERIFIED** | same |
-| 15 | RBAC | **PASS (unit)** | `test_rbac.py` — actually run, passed, including the ANALYST-vs-VIEWER alphabetical-order trap. Real-route enforcement still needs CI |
-| 16 | Cross-tenant test run | **UNVERIFIED** | needs CI (real Postgres+Redis) |
-| 17 | Cross-tenant access denied | **UNVERIFIED** | same |
-| 18 | IDOR test run | **UNVERIFIED** | same |
-| 19 | IDOR access denied | **UNVERIFIED** | same |
-| 20 | Ruff | **UNVERIFIED (fix applied, not re-run)** | found 31 real errors on first run (Section 0), all fixed — re-run pending |
-| 21 | Mypy | **UNVERIFIED (fix applied, not re-run)** | found 13 real errors on first run (Section 0), all fixed — re-run pending |
-| 22 | Pytest | **PASS (non-integration)** | **26 passed, 5 deselected** — actually run by the user, real output. Integration tests (the 5 deselected, including the mandatory cross-tenant/IDOR/password-log tests) still need CI |
-| 23 | CI | **UNVERIFIED** | not yet pushed |
+| 15 | RBAC | **PASS (unit)** | `test_rbac.py` — actually run, passed, including the ANALYST-vs-VIEWER alphabetical-order trap. Real-route enforcement still blocked by #4 |
+| 16 | Cross-tenant test run | **FAIL then fixed** | ran in CI, failed at registration (Section 0b) before ever reaching the actual cross-tenant check — root cause fixed, needs re-run |
+| 17 | Cross-tenant access denied | **UNVERIFIED** | never reached — see #16 |
+| 18 | IDOR test run | **FAIL then fixed** | same failure mode as #16 |
+| 19 | IDOR access denied | **UNVERIFIED** | never reached — see #18 |
+| 20 | Ruff | **PASS** | user confirmed clean after the `require_role` immutable-calls fix (this round) |
+| 21 | Mypy | **PASS** | user confirmed "Success: no issues found in 53 source files" |
+| 22 | Pytest (non-integration) | **PASS** | **26 passed, 5 deselected**, confirmed twice (before and after the ruff/mypy fix round) |
+| 22b | Pytest (integration, CI) | **PARTIAL** | **27 passed, 4 failed** — the 4 failures are the mandatory cross-tenant/IDOR/password-log/full-flow tests, all failing at the same first line (registration) for the same root cause (Section 0b), now fixed. Re-run required |
+| 23 | CI | **PARTIAL** | pipeline runs successfully end-to-end (build, lint, mypy all pass); test job itself reports failures — see #22b |
 | 24 | ADR-003 | **PASS** | file exists, reviewed by inspection — this one genuinely doesn't need infra to verify |
 | 25 | ADR-004 | **PASS** | same |
 
@@ -296,23 +337,26 @@ cycle** — that is the process working, not a sign of a bad plan.
 
 ## 17. Final Phase 1 Status
 
-**PARTIAL.**
+**PARTIAL — closer than the last report, still not PASS.**
 
-Upgraded from UNVERIFIED (Section 0 draft) once the user actually ran
-`ruff check`/`ruff format --check`/`mypy`/`pytest` for real: 31 ruff
-errors + 13 mypy errors were found and fixed (all documented in
-Section 0), and `pytest -m "not integration"` now shows **26 passed,
-5 deselected** — genuine execution evidence, not a claim.
+Real progress this round: lint/format/type-check are now genuinely
+**PASS** (user-confirmed clean), unit tests remain **PASS** (26/26),
+migration `0002` is confirmed applied against real Postgres in CI
+(inferred from the integration test job running at all), and CI
+itself runs end-to-end for the first time — 27 of 31 tests passed.
 
-Not yet PASS because the single most important requirement — cross-
-tenant isolation actually being enforced, not just written — is still
-UNVERIFIED (rows 16-19 in Section 12): those live in the 5 deselected
-integration tests, which need real Postgres+Redis and therefore route
-through CI (per the Phase 0 hardware decision), not through what's
-been run so far. Migration `0002` has also never touched a real
-database yet (rows 1-3).
+Still not PASS: the 4 tests that failed are precisely the mandatory
+ones (full flow, cross-tenant, IDOR, password-log — Section 12 rows
+16-19, 22b) — all failing at the same first step (registration) for
+the same root cause (Section 0b: the test's own fake email domain,
+not an application bug), now fixed. **None of them have actually
+reached their real assertions yet** (cross-tenant denial, IDOR
+denial, password absence from logs) — that only happens on the next
+CI run. The migration reversibility check (downgrade -1 / upgrade
+again) was also missing from CI entirely until this round and has
+never run at all (Section 12 rows 2-3).
 
-Next required step: push to GitHub, confirm CI is green (including
-the integration test job), and report that back — only then does
-this become eligible for PASS per the Definition of Done.
+Next required step: push this round's fixes (test email domain +
+`ci.yml` reversibility steps), confirm CI is fully green including
+all 4 previously-failing tests, and report that back.
 

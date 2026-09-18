@@ -57,7 +57,13 @@ jobs:
       - name: Type check (mypy)
         run: uv run mypy apps/
 
-      - name: Run migrations against real Postgres
+      - name: Migration upgrade (head)
+        run: uv run alembic -c migrations/alembic.ini upgrade head
+
+      - name: Migration downgrade (-1) — reversibility check
+        run: uv run alembic -c migrations/alembic.ini downgrade -1
+
+      - name: Migration upgrade (head) again — confirms downgrade didn't corrupt state
         run: uv run alembic -c migrations/alembic.ini upgrade head
 
       - name: Unit + integration tests

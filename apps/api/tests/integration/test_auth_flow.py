@@ -28,7 +28,17 @@ STRONG_PASSWORD = "correct horse battery staple 42!"
 
 
 def _unique_email() -> str:
-    return f"user-{uuid.uuid4().hex[:12]}@example.test"
+    # NOT @example.test / .example / .invalid / .localhost: those are
+    # RFC 2606 special-use TLDs, and pydantic's EmailStr (via the
+    # email-validator package) rejects them outright as "special-use
+    # or reserved" — found by actually running this in CI, where 4
+    # tests failed with a 422 before ever reaching the logic under
+    # test. A domain under a real TLD (.com) that isn't one of the
+    # handful of RFC 2606-reserved *domains* (example.com/.net/.org/
+    # .edu) passes the same syntax check without needing a real,
+    # deliverable mailbox — pydantic's EmailStr does not perform a
+    # DNS/deliverability lookup by default.
+    return f"user-{uuid.uuid4().hex[:12]}@wdp-test-mail.com"
 
 
 def _unique_slug() -> str:
