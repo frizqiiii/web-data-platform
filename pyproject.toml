@@ -19,6 +19,14 @@ api = [
     "asyncpg>=0.29",
     "alembic>=1.13",
     "structlog>=24.4",
+    # Phase 1: session storage (opaque tokens) — Redis is already part
+    # of the platform (Celery broker), reused here rather than adding
+    # new infra (ADR-003).
+    "redis>=5.0",
+    # Phase 1: Argon2id password hashing (approved Decision B).
+    "argon2-cffi>=23.1.0",
+    # Phase 1: needed for pydantic's EmailStr validator.
+    "email-validator>=2.1",
 ]
 worker = [
     "celery[redis]>=5.4",
@@ -50,14 +58,35 @@ extend-exclude = ["migrations/versions"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+# FastAPI's Depends()/Cookie()/Header() in argument defaults is the
+# framework's own idiomatic pattern, not the mutable-default-argument
+# bug B008 exists to catch — found by actually running ruff against
+# every route/dependency (31 false-positive hits). Whitelisting these
+# specific callables is the standard fix for FastAPI + ruff, not a
+# blanket B008 disable.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Cookie",
+    "fastapi.Header",
+    "fastapi.Query",
+    "fastapi.Body",
+    "fastapi.Path",
+    "app.api.deps.require_role",
+]
+
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
+# Section 80: tightened module-by-module, not blanket-strict from day one
 disallow_untyped_defs = false
 exclude = ["migrations/"]
 
-# celery ships no type stubs upstream (found by actually running mypy)
+# celery ships no type stubs / py.typed marker upstream (found by
+# actually running mypy — see PHASE_0_REPORT.md). Not our code being
+# untyped; ignoring missing stubs for this one third-party package
+# is the honest fix, not a blanket relaxation of mypy for our code.
 [[tool.mypy.overrides]]
 module = "celery.*"
 ignore_missing_imports = true
@@ -65,9 +94,11 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["apps"]
 asyncio_mode = "auto"
-# apps/api/app, apps/worker/worker, apps/scheduler/scheduler are each
-# their own top-level package — pytest needs this to resolve imports
-# (found by actually running pytest)
+# apps/api/app and apps/worker/worker (and apps/scheduler/scheduler)
+# are each their own top-level package rooted at a different
+# directory. Without this, pytest can't resolve `from app...` or
+# `from worker...` imports when run from the repo root (found by
+# actually running pytest — see PHASE_0_REPORT.md).
 pythonpath = ["apps/api", "apps/worker", "apps/scheduler"]
 markers = [
     "integration: requires a live PostgreSQL/Redis instance (see docker-compose.yml); skipped in unit-only runs",

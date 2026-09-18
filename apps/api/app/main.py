@@ -4,6 +4,8 @@ from fastapi import FastAPI
 
 from app.api.router import router
 from app.core.logging import configure_logging
+from app.modules.auth.router import router as auth_router
+from app.modules.organizations.router import router as organizations_router
 
 configure_logging()
 
@@ -16,3 +18,5 @@ app = FastAPI(
 app.include_router(router)
 # Versioned surface per Section 9 API contract
 app.include_router(router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(organizations_router, prefix="/api/v1")

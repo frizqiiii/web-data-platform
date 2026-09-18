@@ -17,6 +17,8 @@ class WorkerSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        # See apps/api/app/core/config.py for why this is "ignore" not
+        # "forbid" — same shared-.env reasoning applies here.
         extra="ignore",
     )
 

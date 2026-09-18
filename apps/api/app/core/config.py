@@ -18,10 +18,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        # "ignore" not "forbid": local dev shares ONE .env across
-        # api/worker/scheduler (e.g. MINIO_* vars), so this Settings
-        # class will legitimately see keys it doesn't declare. Required
-        # fields (database_url, redis_url) still fail fast if missing.
+        # "ignore" rather than "forbid": local dev uses ONE shared .env
+        # for api/worker/scheduler (e.g. MINIO_* vars), so this process's
+        # Settings will legitimately see keys it doesn't declare fields
+        # for. Required fields (database_url, redis_url) still fail
+        # fast if missing — this only relaxes rejecting *unknown* keys,
+        # found necessary by actually running the app (see
+        # PHASE_0_REPORT.md), not a blanket loosening of validation.
         extra="ignore",
     )
 

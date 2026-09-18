@@ -34,6 +34,18 @@ See `docs/architecture/overview.md` for the full diagram and
 
 ## 3. Repository Structure
 
+```
+apps/api/         FastAPI application (modular monolith)
+apps/worker/      Celery worker (scraping engines land here from Phase 3/5)
+apps/scheduler/   Scheduler process (not implemented until Phase 6)
+frontend/         Dashboard (not scaffolded until Phase 9)
+packages/         Shared contracts/logging/telemetry (empty until needed)
+migrations/       Alembic migrations
+infrastructure/   Docker, Kubernetes, Helm, Terraform (k8s/helm/terraform empty until Phase 16)
+docs/             Architecture, ADRs, operations, security, API docs
+tests/            Cross-cutting integration/e2e/performance tests
+```
+
 ## 4. Local Setup
 
 Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker
