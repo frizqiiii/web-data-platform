@@ -76,6 +76,9 @@ extend-immutable-calls = [
     # callable) — same B008 false-positive as FastAPI's own Depends,
     # found by actually running ruff.
     "app.api.deps.require_role",
+    "app.api.deps.require_project_role",
+    "app.api.deps.require_scraper_role",
+    "app.api.deps.require_target_role",
 ]
 
 [tool.mypy]

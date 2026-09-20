@@ -5,6 +5,18 @@ from app.models.audit_log import AuditLog
 from app.models.base import Base
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
+from app.models.project import Project
+from app.models.scraper import Scraper
+from app.models.target import Target
 from app.models.user import User
 
-__all__ = ["Base", "User", "Organization", "OrganizationMember", "AuditLog"]
+__all__ = [
+    "Base",
+    "User",
+    "Organization",
+    "OrganizationMember",
+    "AuditLog",
+    "Project",
+    "Scraper",
+    "Target",
+]

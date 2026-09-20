@@ -21,7 +21,9 @@ import uuid
 from typing import cast
 
 from fastapi import Cookie, Depends, Header, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.csrf import CSRF_HEADER_NAME
 from app.core.database import get_db
@@ -29,6 +31,9 @@ from app.core.rbac import role_satisfies
 from app.core.redis_client import get_redis_client
 from app.core.sessions import AsyncKeyValueStore, SessionStore
 from app.models.organization_member import OrganizationMember
+from app.models.project import Project
+from app.models.scraper import Scraper
+from app.models.target import Target
 from app.models.user import User, UserStatus
 from app.services.organization_service import get_membership
 
@@ -124,5 +129,132 @@ def require_role(minimum_role: str):
         if not role_satisfies(membership.role, minimum_role):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient role")
         return membership
+
+    return _check
+
+
+# --- Phase 2: project/scraper/target tenant isolation ---
+#
+# These follow the exact same "404 for non-members, verified role
+# check separate from existence check" pattern as require_membership/
+# require_role above, but each resource's organization_id is derived
+# by walking its ownership chain (scraper -> project -> organization,
+# target -> scraper -> project -> organization) rather than being a
+# column on the resource itself. Each function is written out in
+# full rather than sharing a generic helper: this is security-
+# critical code, and three short, independently-readable functions
+# are easier to audit correctly than one generic one parameterized
+# by "how to get from resource to organization_id".
+
+
+async def require_project(
+    project_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Project:
+    project = await db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+    membership = await get_membership(
+        db, user_id=current_user.id, organization_id=project.organization_id
+    )
+    if membership is None:
+        # Same 404-not-403 IDOR mitigation as require_membership: a
+        # non-member gets an identical response whether the project
+        # exists or not.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+    return project
+
+
+def require_project_role(minimum_role: str):
+    async def _check(
+        project: Project = Depends(require_project),
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> Project:
+        membership = await get_membership(
+            db, user_id=current_user.id, organization_id=project.organization_id
+        )
+        if membership is None or not role_satisfies(membership.role, minimum_role):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient role")
+        return project
+
+    return _check
+
+
+async def require_scraper(
+    scraper_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Scraper:
+    # selectinload(Scraper.project): accessing scraper.project.
+    # organization_id below without eager-loading it raises
+    # MissingGreenlet under the async engine — this exact class of
+    # bug was found and fixed once already in Phase 1
+    # (organization_service.get_membership); applying the lesson
+    # proactively here.
+    scraper = await db.scalar(
+        select(Scraper).options(selectinload(Scraper.project)).where(Scraper.id == scraper_id)
+    )
+    if scraper is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Scraper not found")
+    membership = await get_membership(
+        db, user_id=current_user.id, organization_id=scraper.project.organization_id
+    )
+    if membership is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Scraper not found")
+    return scraper
+
+
+def require_scraper_role(minimum_role: str):
+    async def _check(
+        scraper: Scraper = Depends(require_scraper),
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> Scraper:
+        membership = await get_membership(
+            db, user_id=current_user.id, organization_id=scraper.project.organization_id
+        )
+        if membership is None or not role_satisfies(membership.role, minimum_role):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient role")
+        return scraper
+
+    return _check
+
+
+async def require_target(
+    target_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Target:
+    target = await db.scalar(
+        select(Target)
+        .options(selectinload(Target.scraper).selectinload(Scraper.project))
+        .where(Target.id == target_id)
+    )
+    if target is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Target not found")
+    membership = await get_membership(
+        db, user_id=current_user.id, organization_id=target.scraper.project.organization_id
+    )
+    if membership is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Target not found")
+    return target
+
+
+def require_target_role(minimum_role: str):
+    async def _check(
+        target: Target = Depends(require_target),
+        current_user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> Target:
+        membership = await get_membership(
+            db,
+            user_id=current_user.id,
+            organization_id=target.scraper.project.organization_id,
+        )
+        if membership is None or not role_satisfies(membership.role, minimum_role):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient role")
+        return target
 
     return _check
