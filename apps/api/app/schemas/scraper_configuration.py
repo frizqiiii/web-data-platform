@@ -32,6 +32,12 @@ class HttpEngineConfig(BaseModel):
     rate_limit_per_minute: int | None = Field(default=None, ge=1, le=10_000)
     user_agent: str | None = Field(default=None, max_length=255)
     headers: dict[str, str] = Field(default_factory=dict)
+    # Phase 3 (Section 19): the HTTP engine's streaming response-size
+    # cap. Additive, backward-compatible field — existing stored
+    # configurations without it get the same 20_000_000 default the
+    # engine itself falls back to when the key is absent, so this is
+    # not a breaking schema change for already-created scrapers.
+    max_response_bytes: int = Field(default=20_000_000, ge=1, le=200_000_000)
 
 
 class BrowserEngineConfig(BaseModel):
