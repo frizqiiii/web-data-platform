@@ -46,6 +46,7 @@ CI (which does have network) runs `apps/worker/tests`.
 """
 
 import time
+from contextlib import aclosing
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -79,7 +80,7 @@ class HttpEngineAdapter:
         self,
         credential_provider: CredentialProvider | None = None,
         resolver: HostnameResolver | None = None,
-        transport: httpx.BaseTransport | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._credential_provider = credential_provider or NullCredentialProvider()
         # Both injected only by tests (a fake DNS resolver, and an
@@ -252,7 +253,7 @@ class HttpEngineAdapter:
                         retryable=(category == ErrorCategory.CONNECTION_FAILURE),
                     )
 
-                async with response:
+                async with aclosing(response):
                     if response.status_code in _REDIRECT_STATUS_CODES:
                         location = response.headers.get("location")
                         if not location:

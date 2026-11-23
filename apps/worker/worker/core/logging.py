@@ -50,7 +50,8 @@ def configure_logging() -> None:
 
 
 def get_engine_logger() -> structlog.stdlib.BoundLogger:
-    return structlog.get_logger("worker.engines")
+    logger: structlog.stdlib.BoundLogger = structlog.get_logger("worker.engines")
+    return logger
 
 
 def _base_fields(
@@ -60,7 +61,7 @@ def _base_fields(
     project_id: object,
     scraper_id: object,
     target_id: object,
-    engine: str,
+    engine: object,
 ) -> dict:
     # UUIDs are passed as `object` and stringified here rather than
     # typed as `UUID` so this module doesn't need to import
@@ -72,7 +73,7 @@ def _base_fields(
         "project_id": str(project_id),
         "scraper_id": str(scraper_id),
         "target_id": str(target_id),
-        "engine": engine,
+        "engine": str(engine),
     }
 
 
