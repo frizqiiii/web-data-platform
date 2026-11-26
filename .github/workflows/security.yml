@@ -1,0 +1,46 @@
+name: Security & Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC: new advisories appear without code changes
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build api and worker images
+        run: docker compose build api worker
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Export locked dependencies
+        run: >
+          uv export --frozen --no-hashes --no-emit-project
+          --group api --group worker --group scheduler
+          -o requirements-audit.txt
+
+      - name: Audit dependencies for known vulnerabilities
+        run: uvx pip-audit --no-deps --disable-pip -r requirements-audit.txt
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # scan full history, not just the latest commit
+
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
