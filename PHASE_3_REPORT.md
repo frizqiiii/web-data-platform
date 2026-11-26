@@ -1,5 +1,7 @@
 # Phase 3 Report — Scraping Engine & Execution Foundation
 
+> **Status update:** Section 19 reflects real execution results and supersedes the UNVERIFIED tags in the other sections, which were written before dependencies could be installed. Only Docker image builds remain UNVERIFIED.
+
 ## 1. Executive Summary
 
 Phase 3 built the execution foundation described in the handoff:
@@ -287,26 +289,30 @@ caveat as Section 17.
 
 ## 19. Validation Results
 
-| Check | Status |
-|---|---|
-| Pure-logic manual test harness (errors/execution/credentials/shared SSRF) | **PASS** (22 assertions, see Section 16) |
-| `apps/worker/tests/engines/**` (httpx/structlog-dependent) | **UNVERIFIED** — network unavailable |
-| `ruff` | **UNVERIFIED** — not installed, no network |
-| `ruff format --check` | **UNVERIFIED** |
-| `mypy` | **UNVERIFIED** |
-| Full `pytest --cov` (project-wide) | **UNVERIFIED** |
-| `alembic upgrade/downgrade/upgrade` round-trip | **UNVERIFIED** (unchanged from Phase 2 — no new migration) |
-| `uv lock` / `uv sync --group worker` | **UNVERIFIED** — attempted offline, fails; needs network |
-| Diff review (Section 3 of this doc; also see below) | **PASS** — done by direct file-tree comparison against the pre-Phase-3 tree (no `.git` in this export), see next paragraph |
+Updated after the first real run on a development machine and on GitHub
+Actions (PR `phase-3-engine`, merged into `main`).
 
-Diff review method: since the uploaded ZIP has no `.git` directory,
-"git diff" itself isn't available — instead the pre-Phase-3 extracted
-tree and the post-Phase-3 tree were compared with `diff -rq`.
-Confirmed: `migrations/`, `apps/scheduler/`, `apps/api/tests/`
-byte-identical to before; total file count grew by exactly the 23
-new files listed in Section 6 (additions only, nothing deleted);
-every modified file's diff was reviewed and matches Section 7's
-description exactly (no accidental unrelated changes).
+| Check | Status | Evidence |
+|---|---|---|
+| `uv lock` / `uv sync` (api, worker, scheduler, dev) | **PASS** | lock regenerated, 65 packages installed incl. `httpx 0.28.1` |
+| `ruff check` | **PASS** | "All checks passed!" (after auto-fix of import order / line length) |
+| `ruff format` | **PASS** | no files left to reformat |
+| `mypy apps/` | **PASS** | "no issues found in 92 source files" (after fixing 8 real errors) |
+| Unit tests (worker + API unit) | **PASS** | 135 passed, 1 deselected (`integration`) |
+| HTTP engine security tests (`MockTransport`) | **PASS** | 18 tests: SSRF, DNS-rebinding, redirects, loop, downgrade, size, headers, credentials, timeouts |
+| Phase 2 regression (`test_url_safety.py` via shim) | **PASS** | all API URL-safety tests still green |
+| Real `https://example.com/` integration test | **PASS** | local run: real DNS + pinned IP + SNI + TLS verification succeeded |
+| GitHub Actions CI (Postgres + Redis, alembic up/down/up, pytest --cov) | **PASS** | PR checks green, merged |
+| `docker build` of `Dockerfile.api` / `Dockerfile.worker` | **UNVERIFIED** | not run; the `COPY packages` / `PYTHONPATH` change is still unproven in a built image |
+
+Bugs found only by real execution (all fixed): `async with response:` is
+invalid for `httpx.Response` (replaced by `contextlib.aclosing`),
+`transport` typed as sync `BaseTransport` instead of `AsyncBaseTransport`,
+and five mypy typing errors in `worker/core/logging.py`.
+
+Not proven even now: the MockTransport tests do not assert that the socket
+connects to `pinned_ip`; that is only indirectly supported by the passing
+`example.com` test. Local Python was 3.14, CI uses 3.12 (CI green).
 
 ## 20. Known Limitations
 
