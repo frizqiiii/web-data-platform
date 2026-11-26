@@ -13,8 +13,13 @@ COPY uv.lock* ./
 RUN uv sync --group worker --no-dev
 
 COPY apps/worker ./apps/worker
+COPY packages ./packages
 
-ENV PYTHONPATH=/app/apps/worker
+# /app is needed (not just /app/apps/worker) so `packages.security.*`
+# resolves — worker/engines/http imports it directly as of Phase 3
+# (ADR-006/ADR-009 Decision #1). /app/apps/worker is kept first so
+# `worker.*` still resolves exactly as before.
+ENV PYTHONPATH=/app/apps/worker:/app
 ENV PATH="/app/.venv/bin:$PATH"
 
 USER appuser

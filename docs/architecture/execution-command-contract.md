@@ -44,6 +44,39 @@ should record `scraper_version`, not just `scraper_id`, so a run's
 result can always be traced back to the exact configuration that
 produced it.
 
+## Phase 3 update: the worker-side counterpart now exists
+
+This document is still design-only for the *dispatch* side — there is
+still no `jobs` table, no queue, and nothing in this repository
+constructs or sends the payload above. What changed in Phase 3 is
+that the *worker* side of the eventual pipeline now exists and is
+real code: `worker.core.execution.ExecutionContext` (see
+`apps/worker/worker/core/execution.py`).
+
+`ExecutionContext` is deliberately a different, narrower shape than
+the command payload above — it is NOT this document's payload with a
+different name:
+
+- It carries `target_id` and `url` (the specific target being
+  fetched), `configuration` (the resolved engine configuration dict),
+  `requested_at`, and `timeout_seconds` — none of which belong in a
+  queue dispatch message, since they're either derived from
+  `target_id` or are execution-mechanics, not job-identity.
+- It does NOT carry `idempotency_key` or `retry_count` — those are
+  dispatch/queue concerns (Phase 5), not execution concerns; an
+  `EngineAdapter` neither knows nor cares how many times this
+  execution has been attempted before.
+- It DOES carry `scraper_version`, for the same reproducibility reason
+  this document already gives for the command payload.
+
+The expected relationship, once Phase 4/5 exist: whatever consumes
+the command payload above (a Celery task) is responsible for loading
+the real `Scraper`/`Target` rows it identifies and constructing an
+`ExecutionContext` snapshot from them — the command payload is "which
+job", `ExecutionContext` is "what to actually do, self-contained." An
+`EngineAdapter` (Phase 3, `worker/engines/`) never sees the command
+payload at all.
+
 ## Explicit non-goals of this document
 
 - Not a Celery task signature.

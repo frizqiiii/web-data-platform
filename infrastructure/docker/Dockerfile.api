@@ -16,8 +16,13 @@ COPY uv.lock* ./
 RUN uv sync --group api --no-dev
 
 COPY apps/api ./apps/api
+COPY packages ./packages
 
-ENV PYTHONPATH=/app/apps/api
+# /app is needed (not just /app/apps/api) so `packages.security.*`
+# resolves — apps/api/app/core/url_safety.py re-exports from there
+# as of Phase 3 (ADR-006/ADR-009 Decision #1). /app/apps/api is kept
+# first so `app.*` still resolves exactly as before.
+ENV PYTHONPATH=/app/apps/api:/app
 ENV PATH="/app/.venv/bin:$PATH"
 
 USER appuser
