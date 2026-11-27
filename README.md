@@ -140,16 +140,18 @@ Not implemented. Kubernetes/Helm/Terraform directories exist as
 empty placeholders reserved for Phase 16 — populating them now with
 no application to deploy would be premature.
 
-## 16. Known Limitations (updated through Phase 2)
+## 16. Known Limitations (updated through Phase 4)
 
 - Scheduler is a stub that intentionally fails (Phase 6 territory).
 - Frontend is not scaffolded (Phase 9).
-- No scraper engine adapters exist — `Scraper.engine`/`configuration`
-  are domain fields only; nothing executes a scraper yet (Phase 3).
-- No job/queue/scheduling system — `Project`/`Scraper`/`Target` are
-  definitions only, not executable work (Phase 4/5/6). See
-  `docs/architecture/execution-command-contract.md` for the forward-
-  looking design.
+- Engines (Phase 3): the HTTP engine is real; Browser and Scrapy are
+  interface-only stubs returning `ENGINE_UNSUPPORTED` (ADR-008). Only
+  tests invoke an engine — nothing in the running system does yet.
+- Execution history (Phase 4): `jobs` / `scrape_runs` tables and a
+  tenant-scoped persistence service exist (ADR-010), but nothing calls
+  the service yet — there is no queue dispatch, retry orchestration,
+  scheduler, `POST /execute` or read endpoint (Phase 5/6). See
+  `docs/architecture/execution-command-contract.md`.
 - `Scraper.credential_reference` is a plain string identifier, NOT a
   secret store — nothing resolves it to an actual credential, and no
   encrypted storage exists. A scraper with this field set is not a

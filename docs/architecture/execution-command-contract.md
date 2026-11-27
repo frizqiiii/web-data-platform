@@ -1,4 +1,4 @@
-# Execution Command Contract (design only — not implemented)
+# Execution Command Contract (dispatch: design only; persistence: Phase 4)
 
 This documents the shape of the message that will eventually flow
 `API -> Domain -> Execution Command -> Queue -> Worker`, per Master
@@ -77,11 +77,30 @@ job", `ExecutionContext` is "what to actually do, self-contained." An
 `EngineAdapter` (Phase 3, `worker/engines/`) never sees the command
 payload at all.
 
+## Phase 4 update: persistence now exists, dispatch still does not
+
+Phase 4 (ADR-010, migration 0004) added the `jobs` and `scrape_runs`
+tables and `app/services/execution_history_service.py`. What this
+changes about the payload above:
+
+- `job_id` is now a real primary key of `jobs`. A job is
+  **scraper-level** (as this payload implies: `scraper_id`, no
+  `target_id`) and records `scraper_version` as the snapshot this
+  document asked for.
+- Per-target execution lives in `scrape_runs`, one row per attempt.
+  `scrape_runs.id` is intended to become `ExecutionContext.
+  execution_id`, so a worker's context traces back to exactly one
+  persisted attempt.
+- `idempotency_key` and `retry_count` are **still not implemented**:
+  they are dispatch concerns and are left to Phase 5 (migration 0005).
+- Still true: nothing constructs, sends or consumes this payload.
+  The persistence service is only called by tests until Phase 5.
+
 ## Explicit non-goals of this document
 
 - Not a Celery task signature.
-- Not a database schema (that's Phase 4's `jobs`/`scrape_runs`
-  tables).
+- Not a database schema (the real schema is migration 0004 and
+  ADR-010; see "Phase 4 update" below).
 - Not a guarantee this shape survives unchanged into Phase 4/5 — it's
   a starting point informed by what Phase 2's domain model actually
   contains, subject to revision when Phase 4 is actually planned.
