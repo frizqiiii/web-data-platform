@@ -20,7 +20,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -58,7 +58,12 @@ SCRAPER_STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 class Scraper(TimestampMixin, Base):
     __tablename__ = "scrapers"
-    __table_args__ = (UniqueConstraint("project_id", "slug", name="uq_scraper_project_slug"),)
+    __table_args__ = (
+        UniqueConstraint("project_id", "slug", name="uq_scraper_project_slug"),
+        # Declared to match migration 0003 (see PHASE_4_5_REPORT.md).
+        Index("ix_scrapers_project_id", "project_id"),
+        Index("ix_scrapers_status", "status"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(

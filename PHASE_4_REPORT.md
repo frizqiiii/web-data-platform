@@ -1,9 +1,9 @@
 # Phase 4 Report — Execution History Persistence
 
 Status: **IMPLEMENTED; verified locally on the maintainer's machine
-(logs pasted into the Phase 4 chat). GitHub Actions CI on the PR is
-still pending. ruff-on-whole-repo and mypy results were not yet
-reported.** Nothing below is claimed PASS unless it says what was
+(logs pasted into the Phase 4 chat): ruff, format, mypy, migrations
+up/down/up, 185 tests. GitHub Actions CI on the PR is still pending.**
+Nothing below is claimed PASS unless it says what was
 actually executed.
 
 ## 1. Scope (as approved)
@@ -59,8 +59,8 @@ were not re-run by the author.
 | Check | Status | Evidence |
 |---|---|---|
 | `ruff check` / `ruff format --check` on the new/changed files | **PASS** (authoring sandbox, ruff 0.16.9) | "All checks passed" |
-| `ruff check .` / `ruff format --check .` whole repo, maintainer's ruff 0.16.8 | **UNVERIFIED** | result not yet reported |
-| `mypy apps/` | **UNVERIFIED** | result not yet reported (Protocol-vs-dataclass typing is the part to watch) |
+| `ruff check .` / `ruff format --check .` whole repo, maintainer's ruff 0.16.8 | **PASS** (local) | "All checks passed!", "125 files already formatted" |
+| `mypy apps/` | **PASS** (local) | "Success: no issues found in 98 source files" after fixing 4 real errors (2x `no-any-return` in the service, 1 variable re-typed in an integration test, 1 `ModuleType` attribute assignment in a unit test). Protocol-vs-dataclass typing passed |
 | Migrations from empty DB: `upgrade head` (0001→0004), `downgrade -1` (0004→0003), `upgrade head` | **PASS** (local) | alembic log shows each step, no errors |
 | Unit tests incl. `test_execution_history.py` | **PASS** (local) | 185 passed in the full run; that file measured 100% executed, no failures listed |
 | Integration tests `test_execution_history_db.py` against real Postgres | **PASS** (local) | 8 passed: round trip across sessions, job-fails path, cross-tenant denied, IDOR denied, duplicate attempt (service + DB), inconsistent rows rejected by DB, history survives target deletion, start_run needs RUNNING job |
@@ -82,6 +82,9 @@ migrations were never reconciled (CI does not run `alembic check`, so
 this was invisible). Migrations 0001-0003 must not be edited; the fix
 (align models, or add a corrective migration) is a separate, explicitly
 approved change and is NOT part of Phase 4.
+
+**Follow-up:** addressed in Phase 4.5 (`PHASE_4_5_REPORT.md`) by
+aligning the models to the migrations and adding `alembic check` to CI.
 
 The unit test `test_migration_0004_matches_models` executes the
 migration's `upgrade()` against a recording stand-in for `alembic.op`
@@ -140,9 +143,8 @@ uv run pytest apps/api/tests/integration/test_execution_history_db.py -m integra
 uv run pytest --cov --cov-report=term-missing       # full regression
 ```
 
-Remaining before merge: report the ruff (whole repo) and mypy results,
-then confirm GitHub Actions is green on the PR and update the
-UNVERIFIED/PENDING rows in section 4.
+Remaining before merge: confirm GitHub Actions is green on the PR
+(Python 3.12) and update the PENDING row in section 4.
 
 ## 8. Phase 5 handoff
 
