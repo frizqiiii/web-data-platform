@@ -10,7 +10,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,9 +31,16 @@ class UserStatus(StrEnum):
 
 class User(TimestampMixin, Base):
     __tablename__ = "users"
+    # Declared explicitly (not unique=True/index=True) so the model matches
+    # migration 0002 exactly: a named unique CONSTRAINT plus a separate
+    # non-unique index. See PHASE_4_5_REPORT.md.
+    __table_args__ = (
+        UniqueConstraint("email", name="uq_users_email"),
+        Index("ix_users_email", "email"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default=UserStatus.ACTIVE.value)

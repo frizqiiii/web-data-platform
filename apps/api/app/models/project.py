@@ -10,7 +10,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,7 +41,12 @@ PROJECT_STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 class Project(TimestampMixin, Base):
     __tablename__ = "projects"
-    __table_args__ = (UniqueConstraint("organization_id", "slug", name="uq_project_org_slug"),)
+    __table_args__ = (
+        UniqueConstraint("organization_id", "slug", name="uq_project_org_slug"),
+        # Declared to match migration 0003 (see PHASE_4_5_REPORT.md).
+        Index("ix_projects_organization_id", "organization_id"),
+        Index("ix_projects_status", "status"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     organization_id: Mapped[uuid.UUID] = mapped_column(

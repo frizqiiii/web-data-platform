@@ -4,7 +4,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String
+from sqlalchemy import Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,10 +21,15 @@ class OrganizationStatus(StrEnum):
 
 class Organization(TimestampMixin, Base):
     __tablename__ = "organizations"
+    # Matches migration 0002 exactly (see PHASE_4_5_REPORT.md).
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_organizations_slug"),
+        Index("ix_organizations_slug", "slug"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    slug: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default=OrganizationStatus.ACTIVE.value
     )

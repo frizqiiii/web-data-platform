@@ -9,7 +9,7 @@ mitigation; Phase 3 must re-validate at fetch time regardless (ADR-006
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +19,8 @@ from app.models.scraper import Scraper
 
 class Target(TimestampMixin, Base):
     __tablename__ = "targets"
+    # Declared to match migration 0003 (see PHASE_4_5_REPORT.md).
+    __table_args__ = (Index("ix_targets_scraper_id", "scraper_id"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     scraper_id: Mapped[uuid.UUID] = mapped_column(

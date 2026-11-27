@@ -66,5 +66,8 @@ jobs:
       - name: Migration upgrade (head) again — confirms downgrade didn't corrupt state
         run: uv run alembic -c migrations/alembic.ini upgrade head
 
+      - name: Model/migration drift check (alembic check)
+        run: uv run alembic -c migrations/alembic.ini check
+
       - name: Unit + integration tests
         run: uv run pytest --cov --cov-report=term-missing
