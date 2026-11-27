@@ -72,8 +72,9 @@ observed.
 ## Not implemented, by design (NOT IN SCOPE for Phase 3)
 
 - Browser and Scrapy real execution (ADR-008).
-- Jobs/scrape_runs persistence, queue dispatch, scheduler, retry
-  orchestration — Phase 3 defines `is_retryable`/
+- Queue dispatch, scheduler, retry orchestration. (Jobs/scrape_runs
+  *persistence* was added in Phase 4 — ADR-010 — but nothing calls it
+  yet.) Phase 3 defines `is_retryable`/
   `is_retryable_http_error` as pure classification; nothing acts on
   that classification yet.
 - `POST /execute` or any other new API endpoint — Phase 3's

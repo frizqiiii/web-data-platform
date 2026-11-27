@@ -303,7 +303,7 @@ Actions (PR `phase-3-engine`, merged into `main`).
 | Phase 2 regression (`test_url_safety.py` via shim) | **PASS** | all API URL-safety tests still green |
 | Real `https://example.com/` integration test | **PASS** | local run: real DNS + pinned IP + SNI + TLS verification succeeded |
 | GitHub Actions CI (Postgres + Redis, alembic up/down/up, pytest --cov) | **PASS** | PR checks green, merged |
-| `docker build` of `Dockerfile.api` / `Dockerfile.worker` | **UNVERIFIED** | not run; the `COPY packages` / `PYTHONPATH` change is still unproven in a built image |
+| `docker build` of `Dockerfile.api` / `Dockerfile.worker` | **UNVERIFIED at authoring; later PASS** | not run when this report was written. Later verified by the maintainer on a Docker-capable machine: both images build and import the shared `packages/` module (maintainer-reported, not re-run in Phase 4) |
 
 Bugs found only by real execution (all fixed): `async with response:` is
 invalid for `httpx.Response` (replaced by `contextlib.aclosing`),
